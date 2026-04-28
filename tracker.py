@@ -1,5 +1,6 @@
 import psutil
 import time
+import datetime
 import csv
 
 
@@ -9,13 +10,15 @@ def track_speed():
 
     time.sleep(1)
 
-    header = ["upload_speed", "download_speed"]
+    header = ["upload_speed", "download_speed", "time"]
 
     with open("output.csv", "w") as file:
         writer = csv.writer(file)
         writer.writerow(header)
 
     while True:
+        timestamp = datetime.datetime.now()
+
         new_bytes_sent = psutil.net_io_counters().bytes_sent
         new_bytes_received = psutil.net_io_counters().bytes_recv
 
@@ -29,7 +32,7 @@ def track_speed():
 
         with open("output.csv", "a") as file:
             writer = csv.writer(file)
-            writer.writerow([upload_speed, download_speed])
+            writer.writerow([upload_speed, download_speed, timestamp])
 
         old_bytes_sent = new_bytes_sent
         old_bytes_received = new_bytes_received
