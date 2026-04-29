@@ -2,6 +2,42 @@ import psutil
 import time
 import datetime
 import csv
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+
+fig, ax = plt.subplots()
+time_data, upload_data, download_data = [], [], []
+
+upload_line, = plt.plot([], [], "r-", label="upload KB/s")
+download_line, = plt.plot([], [], "b-", label="download KB/s")
+
+ax.legend()
+counter = [0]
+
+old = psutil.net_io_counters()
+
+
+def update(frame):
+    global old
+    new = psutil.net_io_counters()
+
+    upload_speed = (new.bytes_sent - old.bytes_sent) / 1024
+    download_speed = (new.bytes_recv - old.bytes_recv) / 1024
+
+    upload_data.append(upload_speed)
+    download_data.append(download_speed)
+    time_data.append(frame)
+
+    upload_line.set_data(time_data, upload_data)
+    download_line.set_data(time_data, download_data)
+
+    old = new
+
+    return upload_line, download_line
+
+
+ani = FuncAnimation(fig, update, interval=1000)
+plt.show()
 
 
 def track_speed():
