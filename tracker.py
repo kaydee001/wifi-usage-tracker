@@ -6,72 +6,83 @@ import threading
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(10, 5))
 time_data, upload_data, download_data = [], [], []
 
-upload_line, = plt.plot([], [], "r-", label="upload KB/s")
-download_line, = plt.plot([], [], "b-", label="download KB/s")
+ax.grid(True)
 
-ax.legend()
-ax.set_xlim(0, 100)
-ax.set_ylim(0, 100)
+plt.tight_layout()
 
-old = psutil.net_io_counters()
+previous_counters = psutil.net_io_counters()
 
 
-def update(frame):
-    global old
-    new = psutil.net_io_counters()
+def calculate_speed(old_counters, new_counters):
+    upload_speed = (new_counters.bytes_sent - old_counters.bytes_sent)/1024
+    download_speed = (new_counters.bytes_recv - old_counters.bytes_recv)/1024
 
-    upload_speed = (new.bytes_sent - old.bytes_sent) / 1024
-    download_speed = (new.bytes_recv - old.bytes_recv) / 1024
+    return upload_speed, download_speed
+
+
+def update(current_frame):
+    global previous_counters
+    current_counters = psutil.net_io_counters()
+
+    upload_speed = (current_counters.bytes_sent -
+                    previous_counters.bytes_sent) / 1024
+    download_speed = (current_counters.bytes_recv -
+                      previous_counters.bytes_recv) / 1024
 
     upload_data.append(upload_speed)
     download_data.append(download_speed)
-    time_data.append(frame)
+    time_data.append(current_frame)
 
     upload_line.set_data(time_data, upload_data)
     download_line.set_data(time_data, download_data)
 
-    old = new
+    previous_counters = current_counters
+
+    max_speed = max(max(upload_data, default=100),
+                    max(download_data, default=100))
+
+    ax.set_xlim(0, current_frame + 1)
+    ax.set_ylim(0, max_speed*1.2)
 
     return upload_line, download_line
 
 
+upload_line, = ax.plot([], [], "r-", label="upload KB/s")
+download_line, = ax.plot([], [], "b-", label="download KB/s")
+
+ax.legend()
+
 ani = FuncAnimation(fig, update, interval=1000, cache_frame_data=False)
-# plt.show()
 
 
 def track_speed():
-    old_bytes_sent = psutil.net_io_counters().bytes_sent
-    old_bytes_received = psutil.net_io_counters().bytes_recv
-
-    time.sleep(1)
+    previous_counters = psutil.net_io_counters()
 
     header = ["upload_speed", "download_speed", "time"]
 
-    with open("output.csv", "w") as file:
-        writer = csv.writer(file)
+    with open("output.csv", "w") as csv_file:
+        writer = csv.writer(csv_file)
         writer.writerow(header)
 
     while True:
-        timestamp = datetime.datetime.now()
+        current_time = datetime.datetime.now()
 
-        new_bytes_sent = psutil.net_io_counters().bytes_sent
-        new_bytes_received = psutil.net_io_counters().bytes_recv
+        current_counters = psutil.net_io_counters()
 
-        upload_speed = (new_bytes_sent-old_bytes_sent)/1024
-        download_speed = (new_bytes_received-old_bytes_received)/1024
+        upload_speed, download_speed = calculate_speed(
+            previous_counters, current_counters)
 
         print(
             f"upload : {upload_speed:.2f} KB/s | download : {download_speed:.2f} KB/s")
 
-        with open("output.csv", "a") as file:
-            writer = csv.writer(file)
-            writer.writerow([upload_speed, download_speed, timestamp])
+        with open("output.csv", "a", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow([upload_speed, download_speed, current_time])
 
-        old_bytes_sent = new_bytes_sent
-        old_bytes_received = new_bytes_received
+        previous_counters = current_counters
 
         time.sleep(1)
 
