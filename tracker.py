@@ -1,7 +1,8 @@
-import psutil
-import time
-import datetime
 import csv
+import time
+import psutil
+import datetime
+import threading
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
@@ -12,7 +13,8 @@ upload_line, = plt.plot([], [], "r-", label="upload KB/s")
 download_line, = plt.plot([], [], "b-", label="download KB/s")
 
 ax.legend()
-counter = [0]
+ax.set_xlim(0, 100)
+ax.set_ylim(0, 100)
 
 old = psutil.net_io_counters()
 
@@ -36,8 +38,8 @@ def update(frame):
     return upload_line, download_line
 
 
-ani = FuncAnimation(fig, update, interval=1000)
-plt.show()
+ani = FuncAnimation(fig, update, interval=1000, cache_frame_data=False)
+# plt.show()
 
 
 def track_speed():
@@ -62,9 +64,7 @@ def track_speed():
         download_speed = (new_bytes_received-old_bytes_received)/1024
 
         print(
-            f"upload speed : {upload_speed:.2f} KB/s")
-        print(
-            f"download speed : {download_speed:.2f} KB/s")
+            f"upload : {upload_speed:.2f} KB/s | download : {download_speed:.2f} KB/s")
 
         with open("output.csv", "a") as file:
             writer = csv.writer(file)
@@ -77,4 +77,7 @@ def track_speed():
 
 
 if __name__ == "__main__":
-    track_speed()
+    track_theard = threading.Thread(target=track_speed, daemon=True)
+
+    track_theard.start()
+    plt.show()
