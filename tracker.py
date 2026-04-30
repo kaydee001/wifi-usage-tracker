@@ -3,6 +3,7 @@ import time
 import psutil
 import datetime
 import threading
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
@@ -23,29 +24,40 @@ def calculate_speed(old_counters, new_counters):
     return upload_speed, download_speed
 
 
+def moving_average(data, window_size):
+    weights = np.ones(window_size)/window_size
+    return np.convolve(data, weights, mode="valid")
+
+
 def update(current_frame):
+    last_points = 60
     global previous_counters
     current_counters = psutil.net_io_counters()
 
-    upload_speed = (current_counters.bytes_sent -
-                    previous_counters.bytes_sent) / 1024
-    download_speed = (current_counters.bytes_recv -
-                      previous_counters.bytes_recv) / 1024
+    upload_speed, download_speed = calculate_speed(
+        previous_counters, current_counters)
 
     upload_data.append(upload_speed)
     download_data.append(download_speed)
     time_data.append(current_frame)
-
-    upload_line.set_data(time_data, upload_data)
-    download_line.set_data(time_data, download_data)
-
     previous_counters = current_counters
+
+    if len(upload_data) < 5:
+        return upload_line, download_line
+
+    smoothed_upload = moving_average(upload_data[-last_points:], window_size=5)
+    smoothed_download = moving_average(
+        download_data[-last_points:], window_size=5)
+
+    upload_line.set_data(time_data[-len(smoothed_upload):], smoothed_upload)
+    download_line.set_data(
+        time_data[-len(smoothed_download):], smoothed_download)
 
     max_speed = max(max(upload_data, default=100),
                     max(download_data, default=100))
 
     ax.set_xlim(0, current_frame + 1)
-    ax.set_ylim(0, max_speed*1.2)
+    ax.set_ylim(0, max(max_speed*1.2, 100))
 
     return upload_line, download_line
 
